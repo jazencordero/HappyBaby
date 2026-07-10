@@ -26,6 +26,14 @@ export default async function LandingPage() {
           <Link href="/login">Sign in</Link>
         </Button>
       </div>
+      <footer className="text-muted-foreground mt-12 max-w-sm text-xs">
+        Prototype · Privacy: we store what you enter to show it to you and the
+        people you invite; nothing else. Contact{" "}
+        <a className="underline" href="mailto:mathew.jazen@gmail.com">
+          mathew.jazen@gmail.com
+        </a>{" "}
+        for deletion.
+      </footer>
     </main>
   );
 }
