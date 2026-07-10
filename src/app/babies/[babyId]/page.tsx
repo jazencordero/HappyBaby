@@ -9,6 +9,8 @@ import { RecordTabs } from "@/components/records/record-tabs";
 import { RecordSection } from "@/components/records/record-section";
 import { AddRecordButton } from "@/components/records/add-record-button";
 import { InviteCaregiverDialog } from "@/components/caregivers/invite-caregiver-dialog";
+import { CaregiverPanel } from "@/components/caregivers/caregiver-panel";
+import { BabySettingsMenu } from "@/components/babies/baby-settings-menu";
 
 export default async function BabyPage({
   params,
@@ -47,12 +49,17 @@ export default async function BabyPage({
 
   return (
     <main className="mx-auto w-full max-w-2xl space-y-6 px-4 py-8">
-      <BabyHeader baby={baby} role={role} />
+      <BabyHeader
+        baby={baby}
+        role={role}
+        settingsMenu={role === "parent" ? <BabySettingsMenu baby={baby} /> : null}
+      />
       <div className="flex flex-wrap gap-2">
         <AddRecordButton babyId={babyId} role={role} />
         {role === "parent" && <InviteCaregiverDialog babyId={babyId} />}
       </div>
       <RecordTabs sections={sections} />
+      {role === "parent" && <CaregiverPanel babyId={babyId} />}
     </main>
   );
 }
