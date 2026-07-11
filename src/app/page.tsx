@@ -13,7 +13,9 @@ export default async function LandingPage() {
 
   return (
     <main className="mx-auto flex min-h-[70vh] max-w-2xl flex-col items-center justify-center gap-6 px-4 text-center">
-      <h1 className="text-4xl font-bold tracking-tight">HappyBaby</h1>
+      <h1 className="font-heading text-4xl font-bold tracking-tight">
+        HappyBaby
+      </h1>
       <p className="text-muted-foreground text-lg">
         Everything caregivers need to know about your baby, in one shared
         place.

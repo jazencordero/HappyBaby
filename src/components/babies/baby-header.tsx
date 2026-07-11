@@ -19,7 +19,9 @@ export function BabyHeader({ baby, role, settingsMenu }: Props) {
       </Avatar>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <h1 className="truncate text-2xl font-semibold">{baby.name}</h1>
+          <h1 className="font-heading truncate text-2xl font-semibold">
+            {baby.name}
+          </h1>
           <RoleBadge role={role} />
         </div>
         <p className="text-muted-foreground text-sm">

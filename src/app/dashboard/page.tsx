@@ -16,7 +16,7 @@ export default async function DashboardPage() {
 
   return (
     <main className="mx-auto w-full max-w-2xl space-y-4 px-4 py-8">
-      <h1 className="text-2xl font-semibold">Your babies</h1>
+      <h1 className="font-heading text-2xl font-semibold">Your babies</h1>
       <div className="grid gap-3">
         {memberships.map(({ role, baby }) => (
           <Link key={baby.id} href={`/babies/${baby.id}`}>
