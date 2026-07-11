@@ -1,6 +1,9 @@
 // ALL reads live here. Every query runs through the user-scoped client, so
 // RLS filters rows; a null result means "doesn't exist or no access".
+import { cache } from "react";
+
 import { createClient } from "@/lib/supabase/server";
+import { getBabyRole } from "@/lib/permissions";
 
 export async function getCurrentUser() {
   const supabase = await createClient();
@@ -22,7 +25,11 @@ export async function getMyBabies() {
     .map((m) => ({ role: m.role, baby: m.babies! }));
 }
 
-export async function getBaby(babyId: string) {
+// Cached (React request memoization): the babies/[babyId] layout and every
+// page it wraps (records, doctor-visit, caregivers, settings) call this and
+// getCurrentBabyRole with the same babyId, so this dedupes to one DB round
+// trip per request instead of one per route segment.
+export const getBaby = cache(async (babyId: string) => {
   const supabase = await createClient();
   const { data } = await supabase
     .from("babies")
@@ -30,7 +37,17 @@ export async function getBaby(babyId: string) {
     .eq("id", babyId)
     .maybeSingle();
   return data;
-}
+});
+
+export const getCurrentBabyRole = cache(async (babyId: string) => {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { user: null, role: null };
+  const role = await getBabyRole(supabase, babyId);
+  return { user, role };
+});
 
 export async function getRecords(babyId: string) {
   const supabase = await createClient();

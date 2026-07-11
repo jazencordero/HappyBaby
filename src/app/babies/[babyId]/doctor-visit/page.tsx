@@ -2,13 +2,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Pill, ShieldAlert, Stethoscope, Syringe } from "lucide-react";
 
-import { createClient } from "@/lib/supabase/server";
 import {
   DOCTOR_VISIT_HISTORY_MONTHS,
   getBaby,
+  getCurrentBabyRole,
   getDoctorVisitSummary,
 } from "@/lib/db/queries";
-import { getBabyRole } from "@/lib/permissions";
 import { Button } from "@/components/ui/button";
 import { PrintButton } from "@/components/babies/print-button";
 import { DoctorVisitSection } from "@/components/babies/doctor-visit-section";
@@ -22,11 +21,7 @@ export default async function DoctorVisitPage({
   const baby = await getBaby(babyId);
   if (!baby) notFound();
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const role = user ? await getBabyRole(supabase, babyId) : null;
+  const { user, role } = await getCurrentBabyRole(babyId);
   if (!user || !role) notFound();
 
   const summary = await getDoctorVisitSummary(babyId);

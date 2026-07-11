@@ -123,14 +123,19 @@ Single full-stack Next.js app. No separate backend. No microservices.
 | `/auth/signout` | Auth (route handler, POST) | Clears session, redirects `/` |
 | `/dashboard` | Auth | Baby list. **If exactly one baby → redirect to it.** If zero → redirect `/babies/new` |
 | `/babies/new` | Auth | Create baby form |
-| `/babies/[babyId]` | Auth + member | Baby dashboard: header, tabbed record sections, caregiver panel (parent only) |
+| `/babies/[babyId]` | Auth + member | Records: header, tabbed record sections |
+| `/babies/[babyId]/doctor-visit` | Auth + member | Read-only aggregated summary (allergies, medications, vaccinations, recent medical history) |
+| `/babies/[babyId]/caregivers` | Auth + parent | Caregiver panel + invite dialog (moved here from the bottom of the records page) |
+| `/babies/[babyId]/settings` | Auth + parent | Edit profile + delete-baby danger zone (moved here from a header dropdown) |
 | `/invite/[token]` | Public page, accept requires auth | Invitation preview + accept |
 
-Navigation: minimal top header (app name → `/dashboard`, user menu with sign out). No sidebar. Baby dashboard is the home surface; everything else is dialogs/drawers on it.
+Navigation: minimal top header (app name → `/dashboard`, user menu with sign out) for everything outside `/babies/[babyId]/*`.
 
-### Role-specific views (same route, `/babies/[babyId]`)
-- **Parent sees:** all record sections with add/edit/delete on everything; "Invite caregiver" button; caregiver list with remove buttons; pending invitations with revoke; baby settings (edit/delete baby).
-- **Caregiver sees:** all record sections read-only, **except** Care Notes where they can add, and edit/delete rows they authored; a `Caregiver` role badge; no invite/member/settings controls.
+> **Post-launch iteration note (2026-07-11):** the line above used to end "No sidebar. Baby dashboard is the home surface; everything else is dialogs/drawers on it." That's superseded, not re-litigated — it was the right call for a one-day prototype with one record surface; four destinations (Records / Doctor Visit / Caregivers / Settings) earned a persistent nav. `/babies/[babyId]/layout.tsx` now wraps all four routes in a **persistent left sidebar on desktop, slide-out sheet on mobile** (shadcn `sidebar` + `sheet`), fetching baby + role once (React `cache()`-deduped `getBaby`/`getCurrentBabyRole` in `src/lib/db/queries.ts`) and re-running the same `notFound()`-on-null-role guard the old page-only version used, so a non-member still 404s on every subpage, not just `/babies/[babyId]` itself. Parents see all four sidebar items; caregivers see Records and Doctor Visit only. The horizontal `RecordTabs` (Medical/Allergies/Routine/Care notes/Vaccinations/Medications) stay nested inside the Records destination — they were not flattened into top-level sidebar items.
+
+### Role-specific views
+- **Parent sees:** all 4 sidebar destinations. Records: all sections with add/edit/delete on everything. Caregivers: "Invite caregiver" button, member list with remove buttons, pending invitations with revoke. Settings: edit/delete baby.
+- **Caregiver sees:** 2 sidebar destinations (Records, Doctor Visit) — no Caregivers/Settings nav items at all, not just hidden controls within them. Records is read-only, **except** Care Notes where they can add, and edit/delete rows they authored; a `Caregiver` role badge.
 
 ---
 
@@ -473,18 +478,27 @@ Routes:
 /login       SignInForm (C: form, input, button)
 /dashboard   BabyList (S) → BabyCard (S: card, avatar) · EmptyBabies (S)
 /babies/new  BabyForm (C: form, input, textarea, native date input)
-/babies/[id] BabyDashboard (S)
-             ├── BabyHeader (S) — name, age (date-fns), RoleBadge (badge)
-             │   └── BabySettingsMenu (C, parent only: dropdown, dialog, alert-dialog)
-             ├── RecordTabs (C: tabs — Medical | Allergies | Routine | Care notes | Vaccinations | Medications)
-             │   └── RecordSection (S) → RecordCard (S: card) + RecordCardMenu (C)
-             │       └── RecordEmptyState (S) — per-category copy + add CTA
-             ├── AddRecordButton (C) → RecordFormDrawer (C: drawer mobile / dialog desktop,
-             │       form, select type — filtered by role, input, textarea, date)
-             └── CaregiverPanel (S, parent only)
-                 ├── InviteCaregiverDialog (C: dialog, input, copy-to-clipboard InvitationLinkPanel)
-                 ├── CaregiverRow (S) + RemoveCaregiverButton (C: alert-dialog)
-                 └── PendingInvitationRow (S) + RevokeButton (C)
+/babies/[id]/layout.tsx (S) — getBaby/getCurrentBabyRole (cached) → notFound() guard,
+             shared by every /babies/[id]/* route below
+             ├── BabySidebar (C, usePathname for active state) — shadcn `sidebar`+`sheet`:
+             │       Records · Doctor Visit · (parent only) Caregivers · Settings
+             └── SidebarInset
+                 ├── /babies/[id]              RecordsPage (S)
+                 │   ├── BabyHeader (S) — name, age (date-fns), RoleBadge (badge)
+                 │   ├── RecordTabs (C: tabs — Medical | Allergies | Routine | Care notes | Vaccinations | Medications)
+                 │   │   └── RecordSection (S) → RecordCard (S: card) + RecordCardMenu (C)
+                 │   │       └── RecordEmptyState (S) — per-category copy + add CTA
+                 │   └── AddRecordButton (C) → RecordFormDrawer (C: drawer mobile / dialog desktop,
+                 │           form, select type — filtered by role, input, textarea, date)
+                 │           └── RecordDetailsFields (C) — vaccination/medication typed fields
+                 ├── /babies/[id]/doctor-visit  DoctorVisitPage (S, read-only, no menus)
+                 │   └── DoctorVisitSection (S) ×4 — Allergies/Medications/Vaccinations/Recent Medical History
+                 ├── /babies/[id]/caregivers    CaregiversPage (S, parent only)
+                 │   ├── InviteCaregiverDialog (C: dialog, input, copy-to-clipboard InvitationLinkPanel)
+                 │   └── CaregiverPanel (S) → CaregiverRow + RemoveCaregiverButton (C: alert-dialog),
+                 │           PendingInvitationRow + RevokeButton (C)
+                 └── /babies/[id]/settings      SettingsPage (S, parent only)
+                     └── BabySettingsPanel (C: BabyForm inline + danger-zone dialog, alert-style confirm)
 /invite/[t]  InvitePage (S) — preview via RPC → AcceptInvitationButton (C)
              states: valid / invalid / expired / revoked / accepted / signed-out (login CTA with ?next=)
 Shared: ErrorState, UnauthorizedState, LoadingSkeleton (skeleton), ConfirmDialog (alert-dialog)
