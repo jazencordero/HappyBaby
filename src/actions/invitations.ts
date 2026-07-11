@@ -94,6 +94,13 @@ export async function acceptInvitation(input: unknown): Promise<ActionResult> {
     if (message.includes("not_authenticated")) {
       return { ok: false, error: "Please sign in to accept this invitation." };
     }
+    if (message.includes("email_mismatch")) {
+      return {
+        ok: false,
+        error:
+          "This invitation was sent to a different email address. Ask the parent to invite you directly, or leave the email field blank next time.",
+      };
+    }
     if (
       message.includes("invalid_invitation") ||
       message.includes("invitation_not_active")
