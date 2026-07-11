@@ -1,6 +1,8 @@
 import { format, formatDistanceToNow } from "date-fns";
 
 import type { BabyRole, RecordType } from "@/lib/permissions";
+import type { Json } from "@/types/database";
+import { formatRecordDetails } from "@/lib/record-meta";
 import { Card, CardContent } from "@/components/ui/card";
 import { RecordCardMenu } from "@/components/records/record-card-menu";
 
@@ -12,6 +14,7 @@ type RecordRow = {
   record_date: string | null;
   created_at: string;
   created_by: string;
+  details: Json | null;
 };
 
 type Props = {
@@ -36,6 +39,11 @@ export function RecordCard({
       <CardContent className="flex items-start gap-3 p-4">
         <div className="min-w-0 flex-1 space-y-1">
           <p className="font-medium">{record.title}</p>
+          {formatRecordDetails(record.type, record.details) && (
+            <p className="text-sm">
+              {formatRecordDetails(record.type, record.details)}
+            </p>
+          )}
           {record.content && (
             <p className="text-muted-foreground text-sm whitespace-pre-wrap">
               {record.content}
@@ -60,6 +68,7 @@ export function RecordCard({
             title: record.title,
             content: record.content ?? "",
             recordDate: record.record_date ?? "",
+            details: record.details,
           }}
           canEdit={canEdit}
           canDelete={canDelete}

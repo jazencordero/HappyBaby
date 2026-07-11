@@ -6,10 +6,9 @@ import type { BabyRole } from "@/lib/permissions";
 type Props = {
   baby: { name: string; date_of_birth: string; description: string | null };
   role: BabyRole;
-  settingsMenu?: React.ReactNode;
 };
 
-export function BabyHeader({ baby, role, settingsMenu }: Props) {
+export function BabyHeader({ baby, role }: Props) {
   return (
     <div className="flex items-start gap-4">
       <Avatar className="size-14">
@@ -33,7 +32,6 @@ export function BabyHeader({ baby, role, settingsMenu }: Props) {
           </p>
         )}
       </div>
-      {settingsMenu}
     </div>
   );
 }

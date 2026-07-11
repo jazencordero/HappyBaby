@@ -3,7 +3,12 @@
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
-import { signInSchema, signUpSchema } from "@/lib/validation/auth";
+import {
+  forgotPasswordSchema,
+  resetPasswordSchema,
+  signInSchema,
+  signUpSchema,
+} from "@/lib/validation/auth";
 import type { ActionResult } from "@/lib/errors";
 import { logError } from "@/lib/log";
 
@@ -56,4 +61,44 @@ export async function signIn(
     return { ok: false, error: "Invalid email or password." };
   }
   redirect(safeNext(next));
+}
+
+export async function requestPasswordReset(input: unknown): Promise<ActionResult> {
+  const parsed = forgotPasswordSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: "Please enter a valid email address." };
+  }
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(
+    parsed.data.email,
+    { redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/confirm?next=/reset-password` }
+  );
+  // Never reveal whether the email is registered — same message either way.
+  if (error) logError("requestPasswordReset", error, { ok: false });
+  return { ok: true, data: undefined };
+}
+
+export async function resetPassword(input: unknown): Promise<ActionResult> {
+  const parsed = resetPasswordSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: "Please check the form and try again." };
+  }
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return {
+      ok: false,
+      error: "This reset link is invalid or has expired. Request a new one.",
+    };
+  }
+  const { error } = await supabase.auth.updateUser({
+    password: parsed.data.password,
+  });
+  if (error) {
+    logError("resetPassword", error, { ok: false });
+    return { ok: false, error: "Could not update your password. Please try again." };
+  }
+  redirect("/dashboard");
 }

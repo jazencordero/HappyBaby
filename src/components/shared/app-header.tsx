@@ -10,7 +10,7 @@ export async function AppHeader() {
   } = await supabase.auth.getUser();
 
   return (
-    <header className="border-b bg-background/80">
+    <header className="border-b bg-background/80 print:hidden">
       <div className="mx-auto flex h-14 max-w-2xl items-center justify-between px-4">
         <Link href={user ? "/dashboard" : "/"} className="font-semibold">
           HappyBaby

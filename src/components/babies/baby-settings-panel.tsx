@@ -1,25 +1,19 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Pencil, Settings, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { deleteBaby } from "@/actions/babies";
 import { BabyForm } from "@/components/babies/baby-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
 type Props = {
   baby: {
@@ -30,8 +24,10 @@ type Props = {
   };
 };
 
-export function BabySettingsMenu({ baby }: Props) {
-  const [editOpen, setEditOpen] = useState(false);
+// Same delete safeguard as the old BabySettingsMenu dropdown (type the
+// baby's name to enable the button) — just surfaced as a page instead of
+// a menu, since Settings is now a primary sidebar destination.
+export function BabySettingsPanel({ baby }: Props) {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [confirmName, setConfirmName] = useState("");
   const [pending, startTransition] = useTransition();
@@ -44,31 +40,12 @@ export function BabySettingsMenu({ baby }: Props) {
   }
 
   return (
-    <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" aria-label="Baby settings">
-            <Settings />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onSelect={() => setEditOpen(true)}>
-            <Pencil /> Edit profile
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            variant="destructive"
-            onSelect={() => setDeleteOpen(true)}
-          >
-            <Trash2 /> Delete profile
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit {baby.name}&apos;s profile</DialogTitle>
-          </DialogHeader>
+    <div className="space-y-6">
+      <Card className="rounded-2xl">
+        <CardHeader>
+          <CardTitle>Profile</CardTitle>
+        </CardHeader>
+        <CardContent>
           <BabyForm
             editing={{
               babyId: baby.id,
@@ -76,10 +53,24 @@ export function BabySettingsMenu({ baby }: Props) {
               dateOfBirth: baby.date_of_birth,
               description: baby.description ?? "",
             }}
-            onSaved={() => setEditOpen(false)}
           />
-        </DialogContent>
-      </Dialog>
+        </CardContent>
+      </Card>
+
+      <Card className="rounded-2xl border-destructive/30">
+        <CardHeader>
+          <CardTitle>Danger zone</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-muted-foreground mb-3 text-sm">
+            Permanently delete {baby.name}&apos;s profile, every record, and
+            all caregiver access. This can&apos;t be undone.
+          </p>
+          <Button variant="destructive" onClick={() => setDeleteOpen(true)}>
+            Delete profile
+          </Button>
+        </CardContent>
+      </Card>
 
       <Dialog
         open={deleteOpen}
@@ -114,6 +105,6 @@ export function BabySettingsMenu({ baby }: Props) {
           </div>
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   );
 }

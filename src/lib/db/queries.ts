@@ -1,6 +1,9 @@
 // ALL reads live here. Every query runs through the user-scoped client, so
 // RLS filters rows; a null result means "doesn't exist or no access".
+import { cache } from "react";
+
 import { createClient } from "@/lib/supabase/server";
+import { getBabyRole } from "@/lib/permissions";
 
 export async function getCurrentUser() {
   const supabase = await createClient();
@@ -22,7 +25,11 @@ export async function getMyBabies() {
     .map((m) => ({ role: m.role, baby: m.babies! }));
 }
 
-export async function getBaby(babyId: string) {
+// Cached (React request memoization): the babies/[babyId] layout and every
+// page it wraps (records, doctor-visit, caregivers, settings) call this and
+// getCurrentBabyRole with the same babyId, so this dedupes to one DB round
+// trip per request instead of one per route segment.
+export const getBaby = cache(async (babyId: string) => {
   const supabase = await createClient();
   const { data } = await supabase
     .from("babies")
@@ -30,7 +37,17 @@ export async function getBaby(babyId: string) {
     .eq("id", babyId)
     .maybeSingle();
   return data;
-}
+});
+
+export const getCurrentBabyRole = cache(async (babyId: string) => {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { user: null, role: null };
+  const role = await getBabyRole(supabase, babyId);
+  return { user, role };
+});
 
 export async function getRecords(babyId: string) {
   const supabase = await createClient();
@@ -74,4 +91,35 @@ export async function getInvitationPreview(token: string) {
   });
   if (error) throw error;
   return data?.[0] ?? null;
+}
+
+// How far back "Recent Medical History" looks on the doctor-visit summary.
+// Allergies/medications/vaccinations are never windowed — they're standing
+// facts, not visit history.
+export const DOCTOR_VISIT_HISTORY_MONTHS = 12;
+
+export async function getDoctorVisitSummary(babyId: string) {
+  const supabase = await createClient();
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - DOCTOR_VISIT_HISTORY_MONTHS);
+  const cutoffDate = cutoff.toISOString().slice(0, 10);
+
+  const { data, error } = await supabase
+    .from("baby_records")
+    .select("*, author:profiles!baby_records_created_by_fkey(display_name)")
+    .eq("baby_id", babyId)
+    .or(
+      `type.in.(allergy,medication,vaccination),and(type.eq.medical_history,or(record_date.is.null,record_date.gte.${cutoffDate}))`
+    )
+    .order("record_date", { ascending: false, nullsFirst: false })
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+
+  const records = data ?? [];
+  return {
+    allergies: records.filter((r) => r.type === "allergy"),
+    medications: records.filter((r) => r.type === "medication"),
+    vaccinations: records.filter((r) => r.type === "vaccination"),
+    medicalHistory: records.filter((r) => r.type === "medical_history"),
+  };
 }

@@ -37,7 +37,7 @@ export default function RootLayout({
       className={`${outfit.variable} ${plusJakartaSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-orange-50/40">
-        <div className="bg-rose-100 px-4 py-1.5 text-center text-xs text-rose-900">
+        <div className="bg-rose-100 px-4 py-1.5 text-center text-xs text-rose-900 print:hidden">
           HappyBaby is an early prototype. Please don&apos;t store real medical
           details yet.
         </div>

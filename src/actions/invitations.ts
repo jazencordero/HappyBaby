@@ -13,6 +13,7 @@ import { generateInvitationToken, invitationUrl } from "@/lib/invitations";
 import { requireParent } from "@/lib/permissions";
 import { GENERIC_ERROR, type ActionResult } from "@/lib/errors";
 import { logError } from "@/lib/log";
+import { sendInvitationEmail } from "@/lib/email";
 
 export async function createInvitation(
   input: unknown
@@ -46,8 +47,32 @@ export async function createInvitation(
     return { ok: false, error: GENERIC_ERROR };
   }
   revalidatePath(`/babies/${babyId}`);
+
+  const inviteUrl = invitationUrl(raw);
+  // Fire-and-forget: the invitation (and its link) already exists in the DB
+  // regardless of whether the email sends, so a delivery failure here must
+  // never surface as a failed invitation to the caller.
+  if (invitedEmail) {
+    const { data: baby } = await supabase
+      .from("babies")
+      .select("name")
+      .eq("id", babyId)
+      .maybeSingle();
+    try {
+      await sendInvitationEmail({
+        to: invitedEmail,
+        inviteUrl,
+        babyName: baby?.name ?? "your baby",
+        inviterName:
+          (user.user_metadata?.display_name as string) || "A parent",
+      });
+    } catch (err) {
+      logError("createInvitation.sendInvitationEmail", err, { babyId });
+    }
+  }
+
   // Raw token exists only in this return value — never logged, never stored.
-  return { ok: true, data: { inviteUrl: invitationUrl(raw) } };
+  return { ok: true, data: { inviteUrl } };
 }
 
 export async function revokeInvitation(input: unknown): Promise<ActionResult> {
@@ -93,6 +118,13 @@ export async function acceptInvitation(input: unknown): Promise<ActionResult> {
     const message = error?.message ?? "";
     if (message.includes("not_authenticated")) {
       return { ok: false, error: "Please sign in to accept this invitation." };
+    }
+    if (message.includes("email_mismatch")) {
+      return {
+        ok: false,
+        error:
+          "This invitation was sent to a different email address. Ask the parent to invite you directly, or leave the email field blank next time.",
+      };
     }
     if (
       message.includes("invalid_invitation") ||

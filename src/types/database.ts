@@ -120,6 +120,7 @@ export type Database = {
           content: string | null
           created_at: string
           created_by: string
+          details: Json | null
           id: string
           record_date: string | null
           title: string
@@ -131,6 +132,7 @@ export type Database = {
           content?: string | null
           created_at?: string
           created_by: string
+          details?: Json | null
           id?: string
           record_date?: string | null
           title: string
@@ -142,6 +144,7 @@ export type Database = {
           content?: string | null
           created_at?: string
           created_by?: string
+          details?: Json | null
           id?: string
           record_date?: string | null
           title?: string
@@ -280,7 +283,13 @@ export type Database = {
     Enums: {
       baby_role: "parent" | "caregiver"
       invitation_status: "pending" | "accepted" | "revoked"
-      record_type: "medical_history" | "allergy" | "routine" | "note"
+      record_type:
+        | "medical_history"
+        | "allergy"
+        | "routine"
+        | "note"
+        | "vaccination"
+        | "medication"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -413,7 +422,14 @@ export const Constants = {
     Enums: {
       baby_role: ["parent", "caregiver"],
       invitation_status: ["pending", "accepted", "revoked"],
-      record_type: ["medical_history", "allergy", "routine", "note"],
+      record_type: [
+        "medical_history",
+        "allergy",
+        "routine",
+        "note",
+        "vaccination",
+        "medication",
+      ],
     },
   },
 } as const

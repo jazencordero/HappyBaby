@@ -82,10 +82,25 @@ describe("baby schemas", () => {
 });
 
 describe("record schemas", () => {
-  it("accepts all four types", () => {
-    for (const type of ["medical_history", "allergy", "routine", "note"]) {
+  it("accepts all six types without details", () => {
+    for (const type of [
+      "medical_history",
+      "allergy",
+      "routine",
+      "note",
+      "vaccination",
+      "medication",
+    ]) {
+      // vaccination/medication still need their required detail field —
+      // this loop only proves the type itself isn't rejected.
+      const details =
+        type === "vaccination"
+          ? { vaccineName: "DTaP" }
+          : type === "medication"
+            ? { medicationName: "Amoxicillin" }
+            : undefined;
       expect(
-        createRecordSchema.safeParse({ babyId: UUID, type, title: "T" })
+        createRecordSchema.safeParse({ babyId: UUID, type, title: "T", details })
           .success
       ).toBe(true);
     }
@@ -93,7 +108,7 @@ describe("record schemas", () => {
 
   it("rejects unknown type, long title, long content", () => {
     expect(
-      createRecordSchema.safeParse({ babyId: UUID, type: "vaccination", title: "T" })
+      createRecordSchema.safeParse({ babyId: UUID, type: "not_a_type", title: "T" })
         .success
     ).toBe(false);
     expect(
@@ -109,6 +124,66 @@ describe("record schemas", () => {
         type: "note",
         title: "T",
         content: "x".repeat(5001),
+      }).success
+    ).toBe(false);
+  });
+
+  it("vaccination requires vaccineName and accepts optional fields", () => {
+    expect(
+      createRecordSchema.safeParse({
+        babyId: UUID,
+        type: "vaccination",
+        title: "T",
+        details: {},
+      }).success
+    ).toBe(false);
+    expect(
+      createRecordSchema.safeParse({
+        babyId: UUID,
+        type: "vaccination",
+        title: "T",
+        details: { vaccineName: "DTaP", doseNumber: "2", administeredBy: "Dr. Patel" },
+      }).success
+    ).toBe(true);
+  });
+
+  it("medication requires medicationName and accepts optional fields", () => {
+    expect(
+      createRecordSchema.safeParse({
+        babyId: UUID,
+        type: "medication",
+        title: "T",
+        details: {},
+      }).success
+    ).toBe(false);
+    expect(
+      createRecordSchema.safeParse({
+        babyId: UUID,
+        type: "medication",
+        title: "T",
+        details: { medicationName: "Amoxicillin", dose: "5ml", schedule: "Twice daily" },
+      }).success
+    ).toBe(true);
+  });
+
+  it("rejects a vaccination record with medication-shaped details", () => {
+    expect(
+      createRecordSchema.safeParse({
+        babyId: UUID,
+        type: "vaccination",
+        title: "T",
+        details: { medicationName: "Amoxicillin", dose: "5ml" },
+      }).success
+    ).toBe(false);
+  });
+
+  it("rejects details on a type that doesn't take them", () => {
+    expect(
+      createRecordSchema.safeParse({
+        babyId: UUID,
+        type: "note",
+        title: "T",
+        details: { vaccineName: "DTaP" },
       }).success
     ).toBe(false);
   });
