@@ -24,6 +24,11 @@ export default async function LoginPage({
         </CardHeader>
         <CardContent className="grid gap-4">
           <SignInForm next={next} />
+          <p className="text-center text-sm">
+            <Link className="underline" href="/forgot-password">
+              Forgot password?
+            </Link>
+          </p>
           <p className="text-muted-foreground text-center text-sm">
             New here?{" "}
             <Link
