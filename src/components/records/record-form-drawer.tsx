@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useEffect, useTransition } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import type { Control, FieldValues } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -102,6 +102,14 @@ export function RecordFormDrawer({
   });
   const watchedType = useWatch({ control: form.control, name: "type" });
   const effectiveType = editing?.type ?? watchedType;
+
+  // Switching type on a new (non-editing) record must clear stale detail
+  // values from a previously selected type — otherwise a leftover field
+  // (e.g. vaccineName) can fail validation for the newly selected type.
+  useEffect(() => {
+    if (!editing) form.setValue("details", detailsFormDefaults(null));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watchedType]);
 
   function onSubmit(values: FormValues) {
     startTransition(async () => {

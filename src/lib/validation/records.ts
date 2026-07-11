@@ -18,7 +18,12 @@ const dateString = z
 
 export const vaccinationDetailsSchema = z.object({
   vaccineName: z.string().trim().min(1, "Please enter a vaccine name").max(200),
-  doseNumber: z.coerce.number().int().positive().optional(),
+  // Preprocess so a blank input ("" from the form) means "not provided"
+  // rather than coercing to 0, which would then fail .positive().
+  doseNumber: z.preprocess(
+    (v) => (v === "" || v == null ? undefined : v),
+    z.coerce.number().int().positive().optional()
+  ),
   administeredBy: z.string().trim().max(200).optional(),
 });
 

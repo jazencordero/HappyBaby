@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Stethoscope } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
 import { getBaby, getRecords } from "@/lib/db/queries";
@@ -11,6 +13,7 @@ import { AddRecordButton } from "@/components/records/add-record-button";
 import { InviteCaregiverDialog } from "@/components/caregivers/invite-caregiver-dialog";
 import { CaregiverPanel } from "@/components/caregivers/caregiver-panel";
 import { BabySettingsMenu } from "@/components/babies/baby-settings-menu";
+import { Button } from "@/components/ui/button";
 
 export default async function BabyPage({
   params,
@@ -57,6 +60,11 @@ export default async function BabyPage({
       <div className="flex flex-wrap gap-2">
         <AddRecordButton babyId={babyId} role={role} />
         {role === "parent" && <InviteCaregiverDialog babyId={babyId} />}
+        <Button asChild variant="outline">
+          <Link href={`/babies/${babyId}/doctor-visit`}>
+            <Stethoscope /> Doctor visit summary
+          </Link>
+        </Button>
       </div>
       <RecordTabs sections={sections} />
       {role === "parent" && <CaregiverPanel babyId={babyId} />}
