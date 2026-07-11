@@ -1,4 +1,5 @@
 import type { BabyRole, RecordType } from "@/lib/permissions";
+import type { Json } from "@/types/database";
 import { canCreateRecordType, canEditRecord } from "@/lib/permissions";
 import { RECORD_META } from "@/lib/record-meta";
 import { RecordCard } from "@/components/records/record-card";
@@ -12,6 +13,7 @@ type RecordRow = {
   record_date: string | null;
   created_at: string;
   created_by: string;
+  details: Json | null;
   author: { display_name: string } | null;
 };
 

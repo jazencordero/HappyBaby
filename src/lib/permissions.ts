@@ -4,7 +4,13 @@ import type { Database } from "@/types/database";
 import { NotAuthorizedError } from "@/lib/errors";
 
 export type BabyRole = "parent" | "caregiver";
-export type RecordType = "medical_history" | "allergy" | "routine" | "note";
+export type RecordType =
+  | "medical_history"
+  | "allergy"
+  | "routine"
+  | "note"
+  | "vaccination"
+  | "medication";
 
 type Db = SupabaseClient<Database>;
 

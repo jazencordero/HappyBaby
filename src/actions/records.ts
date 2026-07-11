@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import {
   createRecordSchema,
   deleteRecordSchema,
+  parseRecordDetails,
   updateRecordSchema,
 } from "@/lib/validation/records";
 import {
@@ -43,7 +44,7 @@ export async function createRecord(input: unknown): Promise<ActionResult> {
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Please sign in to continue." };
 
-  const { babyId, type, title, content, recordDate } = parsed.data;
+  const { babyId, type, title, content, recordDate, details } = parsed.data;
   let role;
   try {
     role = await requireMember(supabase, babyId);
@@ -53,6 +54,10 @@ export async function createRecord(input: unknown): Promise<ActionResult> {
   if (!canCreateRecordType(role, type)) {
     return { ok: false, error: "Caregivers can only add care notes." };
   }
+  const parsedDetails = parseRecordDetails(type, details);
+  if (!parsedDetails.ok) {
+    return { ok: false, error: "Please check the form and try again." };
+  }
 
   const { error } = await supabase.from("baby_records").insert({
     baby_id: babyId,
@@ -60,6 +65,7 @@ export async function createRecord(input: unknown): Promise<ActionResult> {
     title,
     content: content || null,
     record_date: recordDate || null,
+    details: parsedDetails.data,
     created_by: user.id,
   });
   if (error) {
@@ -81,7 +87,7 @@ export async function updateRecord(input: unknown): Promise<ActionResult> {
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Please sign in to continue." };
 
-  const { recordId, title, content, recordDate } = parsed.data;
+  const { recordId, title, content, recordDate, details } = parsed.data;
   const rec = await getRecordForAuthz(supabase, recordId);
   if (!rec) return { ok: false, error: NOT_FOUND };
   let role;
@@ -93,6 +99,10 @@ export async function updateRecord(input: unknown): Promise<ActionResult> {
   if (!canEditRecord(role, rec, user.id)) {
     return { ok: false, error: NOT_PERMITTED };
   }
+  const parsedDetails = parseRecordDetails(rec.type, details);
+  if (!parsedDetails.ok) {
+    return { ok: false, error: "Please check the form and try again." };
+  }
 
   const { error } = await supabase
     .from("baby_records")
@@ -100,6 +110,7 @@ export async function updateRecord(input: unknown): Promise<ActionResult> {
       title,
       content: content || null,
       record_date: recordDate || null,
+      details: parsedDetails.data,
       updated_at: new Date().toISOString(),
     })
     .eq("id", recordId);

@@ -9,7 +9,14 @@ import {
 
 const PARENT_ID = "00000000-0000-0000-0000-000000000001";
 const CAREGIVER_ID = "00000000-0000-0000-0000-000000000002";
-const ALL_TYPES: RecordType[] = ["medical_history", "allergy", "routine", "note"];
+const ALL_TYPES: RecordType[] = [
+  "medical_history",
+  "allergy",
+  "routine",
+  "note",
+  "vaccination",
+  "medication",
+];
 
 describe("canCreateRecordType (matrix: add records)", () => {
   it("parent can add every record type", () => {
@@ -23,6 +30,11 @@ describe("canCreateRecordType (matrix: add records)", () => {
     expect(canCreateRecordType("caregiver", "medical_history")).toBe(false);
     expect(canCreateRecordType("caregiver", "allergy")).toBe(false);
     expect(canCreateRecordType("caregiver", "routine")).toBe(false);
+  });
+
+  it("caregiver cannot add vaccination or medication records", () => {
+    expect(canCreateRecordType("caregiver", "vaccination")).toBe(false);
+    expect(canCreateRecordType("caregiver", "medication")).toBe(false);
   });
 });
 
@@ -56,7 +68,13 @@ describe("canEditRecord (matrix: edit any / edit own note)", () => {
   });
 
   it("caregiver cannot edit parent records of any other type, even own", () => {
-    for (const type of ["medical_history", "allergy", "routine"] as const) {
+    for (const type of [
+      "medical_history",
+      "allergy",
+      "routine",
+      "vaccination",
+      "medication",
+    ] as const) {
       expect(
         canEditRecord(
           "caregiver",

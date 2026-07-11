@@ -7,7 +7,9 @@
 
 ## 1. Executive Recommendation
 
-**Build:** A single Next.js (App Router) full-stack application backed by Supabase (Auth + Postgres + Row Level Security), deployed on Vercel. It implements: email/password auth, baby profiles, four structured record categories (medical history, allergy, routine, note), a copyable-link caregiver invitation flow, caregiver notes, role-based access (PARENT / CAREGIVER), and immediate access revocation. Server-side authorization is enforced twice: in Postgres RLS policies (primary) and in server-action permission helpers (business rules + clear errors).
+**Build:** A single Next.js (App Router) full-stack application backed by Supabase (Auth + Postgres + Row Level Security), deployed on Vercel. It implements: email/password auth, baby profiles, six structured record categories (medical history, allergy, routine, note, vaccination, medication), a copyable-link caregiver invitation flow, caregiver notes, role-based access (PARENT / CAREGIVER), and immediate access revocation. Server-side authorization is enforced twice: in Postgres RLS policies (primary) and in server-action permission helpers (business rules + clear errors).
+
+> **Post-launch iteration note (2026-07-11):** originally four record categories; `vaccination` and `medication` were added as an additive migration per §8 simplification #2's documented path. See §8 and §9 below, updated in place.
 
 **Do not build:** Photo upload, password reset, outbound invitation emails, search, AI, reminders, document uploads, audit UI, delete-baby-cascade UI polish, or anything in the "Out of Scope" list. Photo upload is explicitly **cut from day one** even though the field exists in the schema — private storage buckets + signed URLs cost ~1 hour and validate nothing about the core scenario.
 
@@ -43,7 +45,7 @@ Defaults chosen; flagged items need confirmation but do not block starting.
 ### In scope
 - Email/password sign up, sign in, sign out (Supabase Auth), protected routes, session handling
 - Baby profile: create, view, edit (name, DOB, description); multiple babies supported at DB level
-- Records: create/list/edit/delete for `medical_history`, `allergy`, `routine`, `note`
+- Records: create/list/edit/delete for `medical_history`, `allergy`, `routine`, `note`, `vaccination`, `medication` (the latter two added post-launch, §8)
 - Role model: PARENT and CAREGIVER, enforced server-side and at the database
 - Invitation: parent generates a single-use, expiring, copyable link; signed-in user accepts; becomes caregiver
 - Caregiver: views everything shared, creates/edits/deletes **own notes only**
@@ -229,13 +231,15 @@ create trigger on_auth_user_created
   for each row execute function public.handle_new_user();
 ```
 
+**Post-launch addition (`0004_structured_records.sql`, `0005_record_details.sql`):** per simplification #2 below, `record_type` gained two values (`vaccination`, `medication`) via `alter type ... add value` — each in its own migration file, since Postgres requires that to commit before the value is usable — and `baby_records` gained a nullable `details jsonb` column for their typed fields (`vaccineName`/`doseNumber`/`administeredBy` or `medicationName`/`dose`/`schedule`). No RLS policy changes were needed: `records_insert`'s caregiver clause already keyed off `type = 'note'` by construction, so the new types are parent-only for free, re-verified by impersonation test.
+
 ### Field ownership: auth provider vs. app database
 - **Supabase Auth (`auth.users`) owns:** email (canonical), password hash, session/refresh tokens, `id`.
 - **`public.profiles` owns:** `display_name`, `avatar_url`, and a *copy* of email for display/joins (synced at signup; email change flows are out of scope).
 
 ### Simplifications and their migration cost
 1. **No `removed_at` on memberships (hard delete).** Revocation = `DELETE`, which makes RLS trivially correct and re-inviting possible under the `unique(baby_id, user_id)` constraint. *Cost:* no caregiver-access audit history. *Migration:* add an `access_events` append-only table later; no schema conflict.
-2. **Single flexible `baby_records` table, free-text content.** No per-category fields (dose, vaccine name…). *Cost:* future structured medical records need either typed columns per category or a `jsonb details` column — an additive migration either way.
+2. **Single flexible `baby_records` table, free-text content.** No per-category fields (dose, vaccine name…). *Cost:* future structured medical records need either typed columns per category or a `jsonb details` column — an additive migration either way. **Resolved post-launch:** `vaccination`/`medication` types plus a `details jsonb` column, validated per-type in `src/lib/validation/records.ts` (see schema addendum above).
 3. **Invitation `status` enum + timestamps together.** Slight redundancy, but reads are simple and the RPC keeps them consistent.
 4. **`invited_email` not enforced** at acceptance. *Cost:* none structurally; enforcement is a one-line check later.
 5. **No `updated_at` triggers** — server actions set it explicitly. One less moving part.
@@ -250,7 +254,7 @@ create trigger on_auth_user_created
 |---|---|---|---|
 | View baby / records / members | ✅ | ✅ | ❌ (sees 404) |
 | Edit / delete baby | ✅ | ❌ | ❌ |
-| Add medical / allergy / routine record | ✅ | ❌ | ❌ |
+| Add medical / allergy / routine / vaccination / medication record | ✅ | ❌ | ❌ |
 | Add note | ✅ | ✅ | ❌ |
 | Edit/delete any record | ✅ | ❌ | ❌ |
 | Edit/delete **own** note | ✅ | ✅ | ❌ |
@@ -472,7 +476,7 @@ Routes:
 /babies/[id] BabyDashboard (S)
              ├── BabyHeader (S) — name, age (date-fns), RoleBadge (badge)
              │   └── BabySettingsMenu (C, parent only: dropdown, dialog, alert-dialog)
-             ├── RecordTabs (C: tabs — Medical | Allergies | Routine | Care notes)
+             ├── RecordTabs (C: tabs — Medical | Allergies | Routine | Care notes | Vaccinations | Medications)
              │   └── RecordSection (S) → RecordCard (S: card) + RecordCardMenu (C)
              │       └── RecordEmptyState (S) — per-category copy + add CTA
              ├── AddRecordButton (C) → RecordFormDrawer (C: drawer mobile / dialog desktop,
@@ -488,7 +492,7 @@ Shared: ErrorState, UnauthorizedState, LoadingSkeleton (skeleton), ConfirmDialog
 
 Key contracts:
 - **RecordCard** props: `{ record, authorName, canEdit, canDelete }` — booleans computed server-side from role + ownership; the client never decides permissions.
-- **RecordFormDrawer** props: `{ babyId, role, editing?: Record }` — type selector options: parent → all four; caregiver → `note` only (locked).
+- **RecordFormDrawer** props: `{ babyId, role, editing?: Record }` — type selector options: parent → all six; caregiver → `note` only (locked). Vaccination/medication render extra typed fields (`RecordDetailsFields`) validated against a per-type Zod shape (`details jsonb`).
 - **RoleBadge** props: `{ role }` — "Parent" (primary tint) / "Caregiver" (neutral tint), always visible on baby header.
 - **InvitationLinkPanel** props: `{ url }` — read-only input + copy button + "Anyone with this link can join as a caregiver. It expires in 7 days."
 - Everything renders server-side by default; only forms, menus, dialogs, tabs are client components. No custom-styled components beyond Tailwind utility classes on shadcn primitives.
@@ -497,7 +501,7 @@ Key contracts:
 
 ## 12. UI Specification
 
-**Direction:** warm, calm, trustworthy. Soft off-white background, one warm accent (Tailwind `rose-500`/`orange-400` family), generous whitespace, `rounded-2xl` cards, Lucide icons per category (Stethoscope=medical, ShieldAlert=allergies, Moon=routine, MessageSquareHeart=notes), system font stack or Inter. No illustrations, no animations beyond shadcn defaults. Not clinical, not toy-like.
+**Direction:** warm, calm, trustworthy. Soft off-white background, one warm accent (Tailwind `rose-500`/`orange-400` family), generous whitespace, `rounded-2xl` cards, Lucide icons per category (Stethoscope=medical, ShieldAlert=allergies, Moon=routine, MessageSquareHeart=notes, Syringe=vaccination, Pill=medication), system font stack or Inter. No illustrations, no animations beyond shadcn defaults. Not clinical, not toy-like.
 
 **Layout:** single column, `max-w-2xl mx-auto px-4`, mobile-first. Touch targets ≥44px. Record entry uses a **bottom drawer on mobile** (shadcn `drawer`), dialog ≥`md`. Tabs for categories (segmented, scrollable on mobile).
 

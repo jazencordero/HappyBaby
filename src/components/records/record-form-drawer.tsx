@@ -1,12 +1,14 @@
 "use client";
 
 import { useTransition } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
+import type { Control, FieldValues } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 
 import { createRecord, updateRecord } from "@/actions/records";
-import { createRecordSchema } from "@/lib/validation/records";
+import { createRecordFormSchema } from "@/lib/validation/records";
+import type { Json } from "@/types/database";
 import { RECORD_META, RECORD_TYPES } from "@/lib/record-meta";
 import type { BabyRole, RecordType } from "@/lib/permissions";
 import { useMediaQuery } from "@/hooks/use-media-query";
@@ -40,6 +42,10 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import {
+  RecordDetailsFields,
+  detailsFormDefaults,
+} from "@/components/records/record-details-fields";
 
 export type EditingRecord = {
   recordId: string;
@@ -47,6 +53,7 @@ export type EditingRecord = {
   title: string;
   content: string;
   recordDate: string;
+  details?: Json | null;
 };
 
 type Props = {
@@ -58,7 +65,7 @@ type Props = {
   defaultType?: RecordType;
 };
 
-const formSchema = createRecordSchema.omit({ babyId: true });
+const formSchema = createRecordFormSchema;
 type FormValues = import("zod").z.infer<typeof formSchema>;
 
 export function RecordFormDrawer({
@@ -83,14 +90,18 @@ export function RecordFormDrawer({
           title: editing.title,
           content: editing.content,
           recordDate: editing.recordDate,
+          details: detailsFormDefaults(editing.details),
         }
       : {
           type: defaultType && allowedTypes.includes(defaultType) ? defaultType : allowedTypes[0],
           title: "",
           content: "",
           recordDate: "",
+          details: detailsFormDefaults(null),
         },
   });
+  const watchedType = useWatch({ control: form.control, name: "type" });
+  const effectiveType = editing?.type ?? watchedType;
 
   function onSubmit(values: FormValues) {
     startTransition(async () => {
@@ -100,6 +111,7 @@ export function RecordFormDrawer({
             title: values.title,
             content: values.content,
             recordDate: values.recordDate,
+            details: values.details,
           })
         : await createRecord({ ...values, babyId });
       if (!result.ok) {
@@ -162,12 +174,16 @@ export function RecordFormDrawer({
             </FormItem>
           )}
         />
+        <RecordDetailsFields
+          control={form.control as unknown as Control<FieldValues>}
+          type={effectiveType}
+        />
         <FormField
           control={form.control}
           name="content"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Details (optional)</FormLabel>
+              <FormLabel>Notes (optional)</FormLabel>
               <FormControl>
                 <Textarea rows={4} {...field} />
               </FormControl>
